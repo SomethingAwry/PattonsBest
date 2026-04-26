@@ -1,0 +1,355 @@
+﻿using System.Collections;
+using System.Text;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using WpfAnimatedGif;
+using Button = System.Windows.Controls.Button;
+using Label = System.Windows.Controls.Label;
+
+namespace Pattons_Best
+{
+    [Serializable]
+    public struct BloodSpot
+    {
+        public int mySize;      // diameter  of blood spot
+        public double myLeft;   // left of where blood spot exists on canvas
+        public double myTop;    // top of where blood spot exists on canvas
+        public BloodSpot(int range, Random r)
+        {
+            mySize = r.Next(8) + 5;
+            myLeft = r.Next(range);
+            myTop = r.Next(range);
+        }
+        public BloodSpot(int size, double left, double top)
+        {
+            mySize = size;
+            myLeft = left;
+            myTop = top;
+        }
+    }
+    [Serializable]
+    public class MapItem : IMapItem
+    {
+        [NonSerialized] private static Random theRandom = new Random();
+        [NonSerialized] public static IMapImages theMapImages = new MapImages();
+        private const double PERCENT_MAPITEM_COVERED = 40.0;
+        [NonSerialized] private static BitmapImage theBloodSpot = theMapImages.GetBitmapImage("OBlood1");
+        //--------------------------------------------------
+        public string? Name { get; set; } = "";
+        public string? TopImageName { get; set; } = "";
+        public string? BottomImageName { get; set; } = "";
+        public string? OverlayImageName { get; set; } = "";
+        public List<BloodSpot> myWoundSpots = new List<BloodSpot>();
+        public List<BloodSpot> WoundSpots { get => myWoundSpots; }
+        public double Zoom { get; set; } = 1.0;
+        public bool IsHidden { get; set; } = false;
+        //--------------------------------------------------
+        public int MovementUsed { get; set; } = 0;
+        //--------------------------------------------------
+        public ITerritory TerritoryCurrent { get; set; } = Territory.theTerritories.Find("Offboard");
+        public ITerritory TerritoryStarting { get; set; } = Territory.theTerritories.Find("Offboard");
+        public IMapPoint Location { get; set; } = new MapPoint(0.0, 0.0);
+        //--------------------------------------------------
+        public bool IsMoved { get; set; } = false;
+        private bool myIsFlipped = false;
+        public bool IsAnimated
+        {
+            set
+            {
+                IMapImage mii = theMapImages.Find(this.TopImageName);
+                if (null == mii)
+                {
+                    Logger.Log(LogEnum.LE_ERROR, "IsAnimated.set() could not find map image for " + this.TopImageName);
+                    return;
+                }
+                mii.IsAnimated = value;
+            }
+            get
+            {
+                IMapImage mii = theMapImages.Find(this.TopImageName);
+                if (null == mii)
+                {
+                    Logger.Log(LogEnum.LE_ERROR, "IsAnimated.get() could not find map image for " + this.TopImageName);
+                    return false;
+                }
+                return mii.IsAnimated;
+            }
+        }
+        //----------------------------------------------------------------------------
+        public MapItem() { }
+        public MapItem(string aName, double zoom, bool isHidden, bool isAnimated, string topImageName)
+        {
+            try
+            {
+                this.Name = aName;
+                this.Zoom = zoom;
+                this.IsHidden = isHidden;
+                this.TopImageName = topImageName;
+                this.BottomImageName = null;
+                IMapImage mii = theMapImages.Find(topImageName);
+                if (null == mii)
+                {
+                    mii = (IMapImage)new MapImage(topImageName);
+                    theMapImages.Add(mii);
+                }
+                this.IsAnimated = isAnimated;
+            }
+            catch (Exception ex)
+            {
+                Logger.Log(LogEnum.LE_ERROR, "MapItem(): aName=" + aName + "\n Ex=" + ex.ToString());
+                return;
+            }
+        }
+        public MapItem(IMapItem mi)
+        {
+
+        }
+        protected MapItem(string name)
+        {
+            this.Name = name;
+        }
+        public MapItem(string aName, double zoom, bool isHidden, bool isAnimated, string topImageName, string bottomImageName, IMapPoint aStartingPoint)
+        {
+
+            this.Name = aName;
+            this.Zoom = zoom;
+            this.IsHidden = isHidden;
+            this.Location = aStartingPoint;
+            this.TopImageName = topImageName;
+            this.BottomImageName = bottomImageName;
+            try
+            {
+                IMapImage mii = theMapImages.Find(topImageName);
+                if (null == mii)
+                {
+                    mii = (IMapImage)new MapImage(topImageName);
+                    theMapImages.Add(mii);
+                }
+                mii = theMapImages.Find(bottomImageName);
+                if (null == mii)
+                {
+                    mii = (IMapImage)new MapImage(bottomImageName);
+                    theMapImages.Add(mii);
+                }
+                this.IsAnimated = isAnimated; // This must come after the creating of the image
+            }
+            catch (Exception ex)
+            {
+                Logger.Log(LogEnum.LE_ERROR, "MapItem(): aName=" + aName + "\n Ex=" + ex.ToString());
+                return;
+            }
+        }
+        public MapItem(string aName, double zoom, bool isHidden, bool isAnimated, string topImageName, string bottomImageName, MapPoint aStartingPoint, ITerritory territory) :
+          this(aName, zoom, isHidden, isAnimated, topImageName, bottomImageName, aStartingPoint)
+        {
+            TerritoryCurrent = territory;
+            TerritoryStarting = territory;
+        }
+        public MapItem(string aName, double zoom, bool isHidden, bool isAnimated, string topImageName, string bottomImageName, ITerritory territory) :
+           this(aName, zoom, isHidden, isAnimated, topImageName, bottomImageName, territory.CenterPoint)
+        {
+            TerritoryCurrent = territory;
+            TerritoryStarting = territory;
+        }
+        //----------------------------------------------------------------------------
+        public void SetLocation(int counterCount)
+        {
+            this.Location = new MapPoint(this.TerritoryCurrent.CenterPoint.X - Utilities.theMapItemOffset + (counterCount * Utilities.STACK), this.TerritoryCurrent.CenterPoint.Y - Utilities.theMapItemOffset + (counterCount * Utilities.STACK));
+        }
+        //----------------------------------------------------------------------------
+        public void Flip()
+        {
+            if (false == myIsFlipped)
+            {
+                myIsFlipped = true;
+                string temp = TopImageName;
+                TopImageName = BottomImageName;
+                BottomImageName = temp;
+            }
+        }
+        public void Unflip()
+        {
+            if (true == myIsFlipped)
+            {
+                myIsFlipped = false;
+                string temp = TopImageName;
+                TopImageName = BottomImageName;
+                BottomImageName = temp;
+            }
+        }
+        public override String ToString()
+        {
+            StringBuilder sb = new StringBuilder("Name=<");
+            sb.Append(this.Name);
+            sb.Append(">T=<");
+            sb.Append(this.TerritoryCurrent.Name);
+            return sb.ToString();
+        }
+        //---------------------------------------------------------------------------- static functions
+        public static void Shuffle(ref List<IMapItem> mapItems)
+        {
+            for (int j = 0; j < 10; ++j)
+            {
+                List<IMapItem> newOrder = new List<IMapItem>();
+                // Random select card in myCards list and remove it.  Then add it to new list. 
+                int count = mapItems.Count;
+                for (int i = 0; i < count; i++)
+                {
+                    int index = Utilities.RandomGenerator.Next(mapItems.Count);
+                    if (index < mapItems.Count)
+                    {
+                        IMapItem randomIndex = (IMapItem)mapItems[index];
+                        mapItems.RemoveAt(index);
+                        newOrder.Add(randomIndex);
+                    }
+                }
+                mapItems = newOrder;
+            }
+        }
+        public static void SetButtonContent(Button b, IMapItem mi, bool isStatsShown, bool isAdornmentsShown, bool isSwordOrShieldShown = false, bool isBloodSpotsShown = true)
+        {
+            Grid g = new Grid() { };
+            if (false == mi.IsAnimated)
+            {
+                Image img = new Image() { Source = theMapImages.GetBitmapImage(mi.TopImageName), Stretch = Stretch.Fill };
+                img.Source = theMapImages.GetBitmapImage(mi.TopImageName);
+                g.Children.Add(img);
+                //----------------------------------------------------
+                Canvas c = new Canvas() { };
+                if (true == isBloodSpotsShown)
+                {
+                    foreach (BloodSpot bs in mi.WoundSpots) // create wound spot on canvas
+                    {
+                        Image spotImg = new Image() { Stretch = Stretch.Fill, Height = bs.mySize, Width = bs.mySize, Source = theBloodSpot };
+                        c.Children.Add(spotImg);
+                        Canvas.SetLeft(spotImg, bs.myLeft);
+                        Canvas.SetTop(spotImg, bs.myTop);
+                    }
+                }
+                g.Children.Add(c);
+                //----------------------------------------------------
+                if ("" != mi.OverlayImageName)
+                {
+                    Image overlay = new Image() { Stretch = Stretch.Fill, Source = theMapImages.GetBitmapImage(mi.OverlayImageName) };
+                    g.Children.Add(overlay);
+                }
+            }
+            else
+            {
+                IMapImage mii = theMapImages.Find(mi.TopImageName);
+                g.Children.Add(mii.ImageControl);
+            }
+            b.Content = g;
+        }
+    }
+    //--------------------------------------------------------------------------
+    [Serializable]
+    public class MapItems : IEnumerable, IMapItems
+    {
+        private readonly ArrayList myList;
+        public MapItems() { myList = new ArrayList(); }
+        public MapItems(IMapItems mapItems)
+        {
+            myList = new ArrayList();
+            foreach (IMapItem item in mapItems) { this.Add(item); }
+        }
+        public void Add(IMapItem mi) { myList.Add(mi); }
+        public IMapItem RemoveAt(int index)
+        {
+            IMapItem mi = (IMapItem)myList[index];
+            myList.RemoveAt(index);
+            return mi;
+        }
+        public void Insert(int index, IMapItem mi) { myList.Insert(index, mi); }
+        public int Count { get { return myList.Count; } }
+        public void Reverse() { myList.Reverse(); }
+        public void Clear() { myList.Clear(); }
+        public bool Contains(IMapItem mi) { return myList.Contains(mi); }
+        public IEnumerator GetEnumerator() { return myList.GetEnumerator(); }
+        public int IndexOf(IMapItem mi) { return myList.IndexOf(mi); }
+        public void Remove(IMapItem mi) { myList.Remove(mi); }
+        public IMapItem Find(string miName)
+        {
+            foreach (Object o in myList)
+            {
+                IMapItem mi = (IMapItem)o;
+                if (miName == Utilities.RemoveSpaces(mi.Name))
+                    return mi;
+            }
+            return null;
+        }
+        public IMapItem Remove(string miName)
+        {
+            foreach (Object o in myList)
+            {
+                IMapItem mi = (IMapItem)o;
+                if (miName == mi.Name)
+                {
+                    myList.Remove(mi);
+                    return mi;
+                }
+            }
+            return null;
+        }
+        public IMapItem this[int index]
+        {
+            get { return (IMapItem)(myList[index]); }
+            set { myList[index] = value; }
+        }
+        public IMapItems Shuffle()
+        {
+            IMapItems newOrder = new MapItems();
+            // Random select card in myCards list and
+            // remove it.  Then add it to new list. 
+            int count = myList.Count;
+            for (int i = 0; i < count; i++)
+            {
+                int index = Utilities.RandomGenerator.Next(myList.Count);
+                if (index < myList.Count)
+                {
+                    IMapItem randomIndex = (IMapItem)myList[index];
+                    myList.RemoveAt(index);
+                    newOrder.Add(randomIndex);
+                }
+            }
+
+            return newOrder;
+        }
+        public void Rotate(int numOfRotates)
+        {
+            for (int j = 0; j < numOfRotates; j++)
+            {
+                Object temp = myList[0];
+                for (int i = 0; i < myList.Count - 1; i++)
+                    myList[i] = myList[i + 1];
+                myList[myList.Count - 1] = temp;
+            }
+        }
+        public override String ToString()
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.Append("[ ");
+            foreach (Object o in myList)
+            {
+                IMapItem mi = (IMapItem)o;
+                sb.Append(mi.Name);
+                sb.Append(" ");
+            }
+            sb.Append("]");
+            return sb.ToString();
+        }
+    }
+    //--------------------------------------------------------------------------
+    public static class MyMapItemExtensions
+    {
+        public static IMapItem Find(this IList<IMapItem> list, string miName)
+        {
+            IEnumerable<IMapItem> results = from mi in list where mi.Name == miName select mi;
+            if (0 < results.Count())
+                return results.First();
+            else
+                return null;
+        }
+    }
+}
