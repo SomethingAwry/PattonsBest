@@ -5,7 +5,7 @@ namespace Pattons_Best
 {
     public partial class TerritoryCreateDialog : Window
     {
-        public String RadioOutputText { get; set; } = "Open";
+        public String? RadioOutputText { get; set; }
         public TerritoryCreateDialog()
         {
             InitializeComponent();
@@ -16,8 +16,16 @@ namespace Pattons_Best
         }
         private void RadioButton_Checked(object sender, RoutedEventArgs e)
         {
-            RadioButton radioButton = (RadioButton)sender;
-            RadioOutputText = radioButton.Content.ToString();
+            RadioButton? radioButton = (RadioButton)sender;
+            if (null == radioButton)
+            {
+                Logger.Log(LogEnum.LE_ERROR, "RadioButton_Checked(): radioButton=null");
+            }
+            else
+            {
+                if (null != radioButton.Content)
+                    RadioOutputText = radioButton.Content.ToString();
+            }
         }
     }
 }

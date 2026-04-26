@@ -83,6 +83,16 @@ namespace Pattons_Best
         }
         public bool Command(ref IGameInstance gi)
         {
+            if (null == myCanvas)
+            {
+                Logger.Log(LogEnum.LE_ERROR, "Command(): myCanvas=null");
+                return false;
+            }
+            if (null == myDieRoller)
+            {
+                Logger.Log(LogEnum.LE_ERROR, "Command(): myDieRoller=null");
+                return false;
+            }
             Logger.SetOn(LogEnum.LE_RESET_ROLL_STATE);
             if (CommandName == myCommandNames[0]) // Show 100 rolls of the dice and the average value
             {

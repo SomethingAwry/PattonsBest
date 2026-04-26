@@ -3,9 +3,9 @@
     public interface IMapItemMove
     {
         IMapItem MapItem { get; set; }
-        ITerritory OldTerritory { get; set; }
-        ITerritory NewTerritory { get; set; }
-        IMapPath BestPath { get; set; }
+        ITerritory? OldTerritory { get; set; }
+        ITerritory? NewTerritory { get; set; }
+        IMapPath? BestPath { get; set; }
     }
     public interface IMapItemMoves : System.Collections.IEnumerable
     {
@@ -18,8 +18,8 @@
         int IndexOf(IMapItemMove mim);
         void Remove(IMapItemMove mim);
         IMapItemMove? Remove(IMapItem mi);
-        IMapItemMove Find(IMapItem mi);
+        IMapItemMove? Find(IMapItem mi);
+        IMapItemMove? this[int index] { get; set; }
         IMapItemMoves Shuffle();
-        IMapItemMove this[int index] { get; set; }
     }
 }

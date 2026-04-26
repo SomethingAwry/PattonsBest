@@ -36,12 +36,6 @@ namespace Pattons_Best
         private readonly ArrayList myList;
         public Stacks() { myList = new ArrayList(); }
         public void Add(IStack stack) { myList.Add(stack); }
-        public IStack RemoveAt(int index)
-        {
-            IStack stack = (IStack)myList[index];
-            myList.RemoveAt(index);
-            return stack;
-        }
         public void Insert(int index, IStack stack) { myList.Insert(index, stack); }
         public int Count { get { return myList.Count; } }
         public void Clear() { myList.Clear(); }
@@ -49,7 +43,7 @@ namespace Pattons_Best
         public IEnumerator GetEnumerator() { return myList.GetEnumerator(); }
         public int IndexOf(IStack stack) { return myList.IndexOf(stack); }
         public void Remove(IStack stack) { myList.Remove(stack); }
-        public IStack Find(ITerritory t)
+        public IStack? Find(ITerritory t)
         {
             string territoryName = Utilities.RemoveSpaces(t.Name);
             foreach (Object o in myList)
@@ -60,7 +54,7 @@ namespace Pattons_Best
             }
             return null;
         }
-        public IStack Find(IMapItem mi)
+        public IStack? Find(IMapItem mi)
         {
             foreach (Object o in myList)
             {
@@ -73,7 +67,7 @@ namespace Pattons_Best
             }
             return null;
         }
-        public IStack Find(String name)
+        public IStack? Find(String name)
         {
             foreach (Object o in myList)
             {
@@ -86,7 +80,7 @@ namespace Pattons_Best
             }
             return null;
         }
-        public IStack Remove(IMapItem mi)
+        public IStack? Remove(IMapItem mi)
         {
             foreach (Object o in myList)
             {
@@ -102,9 +96,16 @@ namespace Pattons_Best
             }
             return null;
         }
-        public IStack this[int index]
+        public IStack? RemoveAt(int index)
         {
-            get { return (IStack)(myList[index]); }
+            IStack? stack = myList[index] as IStack;
+            if (stack == null) return null;
+            myList.RemoveAt(index);
+            return stack;
+        }
+        public IStack? this[int index]
+        {
+            get { IStack? s = myList[index] as IStack; return s; }
             set { myList[index] = value; }
         }
         public IStacks Shuffle()
@@ -116,10 +117,17 @@ namespace Pattons_Best
                 int index = Utilities.RandomGenerator.Next(myList.Count);
                 if (index < myList.Count)
                 {
-                    IStack stack = (IStack)myList[index];
+                    IStack? stack = myList[index] as IStack;
                     myList.RemoveAt(index);
-                    stack.Shuffle();
-                    newStacks.Add(stack);
+                    if (null == stack)
+                    {
+                        Logger.Log(LogEnum.LE_ERROR, "Shuffle(): stack=null");
+                    }
+                    else
+                    {
+                        stack.Shuffle();
+                        newStacks.Add(stack);
+                    }
                 }
             }
             return newStacks;

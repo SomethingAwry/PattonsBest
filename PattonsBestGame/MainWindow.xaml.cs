@@ -91,8 +91,10 @@ namespace Pattons_Best
             }
         }
         //-----------------------------------------------------------------------
-        public void UpdateViews(ref IGameInstance gi, GameAction action)
+        public void UpdateViews(IGameInstance gi, GameAction action)
         {
+            if (null == myGameEngine)
+                return;
             foreach (IView v in myGameEngine.Views)
                 v.UpdateView(ref gi, action);
         }
